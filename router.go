@@ -69,7 +69,10 @@ func newRegexResolver() *regexResolver {
 }
 
 func (r *regexResolver) Add(pattern string, handlerFunc http.HandlerFunc, methods ...string) error {
-	methodsString := fmt.Sprintf("(%s)", strings.Join(methods, "|"))
+	methodsString := "GET"
+	if len(methods) > 0 {
+		methodsString = fmt.Sprintf("(%s)", strings.Join(methods, "|"))
+	}
 	fullPattern := strings.Join([]string{methodsString, pattern}, " ")
 	r.handlers[fullPattern] = handlerFunc
 	cache, err := regexp.Compile(fullPattern)

@@ -6,28 +6,26 @@ import (
 )
 
 func TestCheckMethod(t *testing.T) {
-	got := checkMethod("GET", "/hello", "GET /hello")
-	exp := methodAndPathFound
-	if got != exp {
-		t.Errorf("Expected result %d, but we got %d", exp, got)
+	cases := map[string]struct {
+		inputMethod string
+		inputPath   string
+		pattern     string
+		exp         uint8
+	}{
+		"Test empty method":                    {"", "/hello", "GET /hello", methodNotFound},
+		"Test path":                            {"GET", "/hello", "GET /$", pathNotFound},
+		"Testing POST method with GET request": {"GET", "/hello", "POST /hello", methodNotFound},
+		"Test method and path":                 {"GET", "/hello", "GET /hello", methodAndPathFound},
+		"Test GET method":                      {"GET", "/hello", "(GET|POST) /hello", methodAndPathFound},
+		"Test POST method":                     {"POST", "/hello", "(GET|POST) /hello", methodAndPathFound},
 	}
-
-	got = checkMethod("GET", "/hello", "POST /hello")
-	exp = methodNotFound
-	if got != exp {
-		t.Errorf("Expected result %d, but we got %d", exp, got)
-	}
-
-	got = checkMethod("GET", "/", "POST /hello")
-	exp = pathNotFound
-	if got != exp {
-		t.Errorf("Expected result %d, but we got %d", exp, got)
-	}
-
-	got = checkMethod("GET", "/hello", "(GET|POST) /hello")
-	exp = methodAndPathFound
-	if got != exp {
-		t.Errorf("Expected result %d, but we got %d", exp, got)
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			got := checkMethod(tc.inputMethod, tc.inputPath, tc.pattern)
+			if got != tc.exp {
+				t.Errorf("Expected result %d, but we got %d", tc.exp, got)
+			}
+		})
 	}
 }
 
