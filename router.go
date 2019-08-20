@@ -1,6 +1,7 @@
 package microrouter
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"regexp"
@@ -11,7 +12,7 @@ const defaultContentType = "text/html"
 
 type RegexHandler interface {
 	http.Handler
-	Add(pattern string, handlerFunc http.HandlerFunc) error
+	Add(pattern string, handlerFunc http.HandlerFunc, methods ...string) error
 	SetNotFoundHandler(contentType string, handlerFunc http.HandlerFunc)
 	SetMethodNotFoundHandler(contentType string, handlerFunc http.HandlerFunc)
 }
@@ -61,13 +62,15 @@ func newRegexResolver() *regexResolver {
 	}
 }
 
-func (r *regexResolver) Add(pattern string, handlerFunc http.HandlerFunc) error {
-	r.handlers[pattern] = handlerFunc
-	cache, err := regexp.Compile(pattern)
+func (r *regexResolver) Add(pattern string, handlerFunc http.HandlerFunc, methods ...string) error {
+	methodsString := fmt.Sprintf("(%s)", strings.Join(methods, "|"))
+	fullPattern := strings.Join([]string{methodsString, pattern}, " ")
+	r.handlers[fullPattern] = handlerFunc
+	cache, err := regexp.Compile(fullPattern)
 	if err != nil {
 		return err
 	}
-	r.cache[pattern] = cache
+	r.cache[fullPattern] = cache
 	return nil
 }
 

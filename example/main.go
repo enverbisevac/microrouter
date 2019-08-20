@@ -11,7 +11,7 @@ func main() {
 	router := microrouter.NewRouter()
 	router.Use(microrouter.LoggerMiddleware())
 	// method first and then path
-	err := router.Add("GET /enver", index)
+	err := router.Add("/enver", index, "GET", "POST")
 	if err != nil {
 		panic("Error adding route to router")
 	}
