@@ -10,6 +10,12 @@ import (
 
 const defaultContentType = "text/html"
 
+const (
+	methodNotFound uint8 = iota
+	pathNotFound
+	methodAndPathFound
+)
+
 type RegexHandler interface {
 	http.Handler
 	Add(pattern string, handlerFunc http.HandlerFunc, methods ...string) error
@@ -95,18 +101,15 @@ func (r *regexResolver) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 	// following code shoud not be focused too much on speed
 	// bcoz error 405 or 404 are very rare
-	methodChecked := false
-	pathChecked := false
+	result := pathNotFound
 	for pattern := range r.handlers {
-		path, method := checkMethod(req.Method, req.URL.Path, pattern)
-		if path == true && method == true {
-			pathChecked, methodChecked = true, true
+		if checkMethod(req.Method, req.URL.Path, pattern) == methodNotFound {
+			result = methodNotFound
 			break
 		}
-		pathChecked, methodChecked = path, method
 	}
 
-	if !methodChecked && pathChecked {
+	if result == methodNotFound {
 		r.Http405(res, req)
 		return
 	}
@@ -138,20 +141,20 @@ func getContentType(req *http.Request) string {
 	return contentType
 }
 
-func checkMethod(inputMethod, inputPath, pattern string) (bool, bool) {
+func checkMethod(inputMethod, inputPath, pattern string) uint8 {
 	log.Printf("Checking request method %s with pattern %s", inputMethod, pattern)
 	splitter := strings.Split(pattern, " ")
 	// we have to check path of our request url
 	path := splitter[1]
 	regex, _ := regexp.Compile(path)
 	if regex.MatchString(inputPath) != true {
-		return false, false
+		return pathNotFound
 	}
 	// check request method if path was founded
 	method := splitter[0]
 	regex, _ = regexp.Compile(method)
 	if regex.MatchString(inputMethod) != true {
-		return true, false
+		return methodNotFound
 	}
-	return true, true
+	return methodAndPathFound
 }
