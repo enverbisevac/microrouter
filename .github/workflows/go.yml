@@ -28,11 +28,11 @@ jobs:
       - name: Test and coverage
         run: go test -race -coverprofile=coverage.txt -covermode=atomic
       - name: Upload coverage to Codecov
-          uses: codecov/codecov-action@v1.0.0
-          with:
-            token: ${{secrets.CODECOV_TOKEN}}
-            file: ./coverage.txt
-            flags: unittests
-            name: codecov-microrouter
+        uses: codecov/codecov-action@v1.0.0
+        with:
+          token: ${{secrets.CODECOV_TOKEN}}
+          file: ./coverage.txt
+          flags: unittests
+          name: codecov-microrouter
       - name: Build
         run: go build -v .
