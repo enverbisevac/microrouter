@@ -1,3 +1,4 @@
+[![Actions Status](https://github.com/enverbisevac/microrouter/workflows/Go/badge.svg)](https://github.com/enverbisevac/microrouter/actions)
 # MicroRouter
 
 Simple router using regex and cache regex compiled result for fast matching.
