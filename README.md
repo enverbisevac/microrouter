@@ -1,5 +1,6 @@
 [![Actions Status](https://github.com/enverbisevac/microrouter/workflows/Go/badge.svg)](https://github.com/enverbisevac/microrouter/actions)
 [![codecov](https://codecov.io/gh/enverbisevac/microrouter/branch/master/graph/badge.svg)](https://codecov.io/gh/enverbisevac/microrouter)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 # MicroRouter
 
 Simple router using regex and cache regex compiled result for fast matching.
