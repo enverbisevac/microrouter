@@ -16,13 +16,6 @@ const (
 	methodAndPathFound
 )
 
-type RegexHandler interface {
-	http.Handler
-	Add(pattern string, handlerFunc http.HandlerFunc, methods ...string) error
-	SetNotFoundHandler(contentType string, handlerFunc http.HandlerFunc)
-	SetMethodNotFoundHandler(contentType string, handlerFunc http.HandlerFunc)
-}
-
 type Router struct {
 	RegexHandler
 	middlewares MiddlewareChain
@@ -44,12 +37,18 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	handler.ServeHTTP(w, r)
 }
 
+type RegexHandler interface {
+	http.Handler
+	Add(pattern string, handlerFunc http.HandlerFunc, methods ...string) error
+	SetNotFoundHandler(contentType string, handlerFunc http.HandlerFunc)
+	SetMethodNotFoundHandler(contentType string, handlerFunc http.HandlerFunc)
+}
+
 type regexResolver struct {
 	handlers       map[string]http.HandlerFunc
 	cache          map[string]*regexp.Regexp
 	notFound       map[string]http.HandlerFunc // Content type based not found resource
 	methodNotFound map[string]http.HandlerFunc
-	errorHandler   map[string]http.HandlerFunc // Content type based internal server error
 }
 
 func newRegexResolver() *regexResolver {
@@ -64,16 +63,23 @@ func newRegexResolver() *regexResolver {
 		cache:          make(map[string]*regexp.Regexp),
 		notFound:       notFound,
 		methodNotFound: methodNotFound,
-		errorHandler:   make(map[string]http.HandlerFunc),
 	}
 }
 
-func (r *regexResolver) Add(pattern string, handlerFunc http.HandlerFunc, methods ...string) error {
+func generateFullPattern(pattern string, methods ...string) string {
+	if pattern == "" {
+		pattern = "/$"
+	}
 	methodsString := "GET"
-	if len(methods) > 0 {
+	if len(methods) > 1 {
 		methodsString = fmt.Sprintf("(%s)", strings.Join(methods, "|"))
 	}
 	fullPattern := strings.Join([]string{methodsString, pattern}, " ")
+	return fullPattern
+}
+
+func (r *regexResolver) Add(pattern string, handlerFunc http.HandlerFunc, methods ...string) error {
+	fullPattern := generateFullPattern(pattern, methods...)
 	r.handlers[fullPattern] = handlerFunc
 	cache, err := regexp.Compile(fullPattern)
 	if err != nil {
@@ -129,11 +135,6 @@ func (r *regexResolver) Http404(res http.ResponseWriter, req *http.Request) {
 func (r *regexResolver) Http405(res http.ResponseWriter, req *http.Request) {
 	contentType := getContentType(req)
 	r.methodNotFound[contentType](res, req)
-}
-
-func (r *regexResolver) Http500(res http.ResponseWriter, req *http.Request) {
-	contentType := getContentType(req)
-	r.errorHandler[contentType](res, req)
 }
 
 func getContentType(req *http.Request) string {
