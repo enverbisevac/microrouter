@@ -96,7 +96,7 @@ func (r *regexResolver) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	check := strings.Join([]string{req.Method, req.URL.Path}, " ")
 	// try to find in routes table
 	for pattern, handlerFunc := range r.handlers {
-		if r.cache[pattern].MatchString(check) == true {
+		if r.cache[pattern].MatchString(check) {
 			handlerFunc(res, req)
 			return
 		}
@@ -150,13 +150,13 @@ func checkMethod(inputMethod, inputPath, pattern string) uint8 {
 	// we have to check path of our request url
 	path := splitter[1]
 	regex, _ := regexp.Compile(path)
-	if regex.MatchString(inputPath) != true {
+	if !regex.MatchString(inputPath) {
 		return pathNotFound
 	}
 	// check request method if path was founded
 	method := splitter[0]
 	regex, _ = regexp.Compile(method)
-	if regex.MatchString(inputMethod) != true {
+	if !regex.MatchString(inputMethod) {
 		return methodNotFound
 	}
 	return methodAndPathFound
