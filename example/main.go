@@ -20,5 +20,5 @@ func main() {
 
 func index(res http.ResponseWriter, req *http.Request) {
 	log.Println("index handler")
-	fmt.Fprint(res, "<h1>Hello from index handler</h1>")
+	_, _ = fmt.Fprint(res, "<h1>Hello from index handler</h1>")
 }
