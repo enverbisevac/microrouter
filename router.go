@@ -53,8 +53,8 @@ type regexResolver struct {
 
 func newRegexResolver() *regexResolver {
 	notFound := make(map[string]http.HandlerFunc)
-	notFound[defaultContentType] = http.NotFound
-	notFound["text/plain"] = http.NotFound
+	notFound[defaultContentType] = Http404Html
+	notFound["text/plain"] = Http404Text
 	methodNotFound := make(map[string]http.HandlerFunc)
 	methodNotFound[defaultContentType] = Http405Html
 	methodNotFound["text/plain"] = Http405Text
@@ -147,6 +147,10 @@ func getContentType(req *http.Request) string {
 
 func checkMethod(inputMethod, inputPath, pattern string) uint8 {
 	log.Printf("Checking request method %s with pattern %s", inputMethod, pattern)
+	if inputMethod == "OPTIONS" {
+		log.Println("OPTIONS must pass check")
+		return methodAndPathFound
+	}
 	splitter := strings.Split(pattern, " ")
 	// we have to check path of our request url
 	path := splitter[1]

@@ -34,6 +34,7 @@ func TestCheckMethod(t *testing.T) {
 		"Test method and path":                 {"GET", "/hello", "GET /hello", methodAndPathFound},
 		"Test GET method":                      {"GET", "/hello", "(GET|POST) /hello", methodAndPathFound},
 		"Test POST method":                     {"POST", "/hello", "(GET|POST) /hello", methodAndPathFound},
+		"Test OPTIONS method":                  {"OPTIONS", "/hello", "(GET|POST) /hello", methodAndPathFound},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {

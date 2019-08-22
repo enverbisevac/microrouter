@@ -21,7 +21,8 @@ you can make one very easily.
  	log.Fatal(http.ListenAndServe(":8080", router))
 
 ### TODO
-- Name for url path
-- Group urls
-- Static files
-- Default handler for some standard content types 
+- [ ] Name for url path
+- [ ] Group urls
+- [ ] Static files
+- [x] Default handler for some standard content types
+- [x] Example 
