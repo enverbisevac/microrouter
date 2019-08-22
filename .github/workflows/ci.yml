@@ -1,8 +1,5 @@
 name: Main workflow
-on:
-  push:
-    branches:
-      - master
+on: push
 jobs:
 
   test:
