@@ -2,14 +2,12 @@ package microrouter
 
 import (
 	"net/http"
+	"net/url"
 	"testing"
 )
 
 func TestNewRegexResolver(t *testing.T) {
 	object := newRegexResolver()
-	if object.handlers == nil {
-		t.Error("handlers not created")
-	}
 	if object.cache == nil {
 		t.Error("cache not created")
 	}
@@ -21,6 +19,10 @@ func TestNewRegexResolver(t *testing.T) {
 	}
 }
 
+func TestRegexResolver_Add(t *testing.T) {
+
+}
+
 func TestCheckMethod(t *testing.T) {
 	cases := map[string]struct {
 		inputMethod string
@@ -28,12 +30,13 @@ func TestCheckMethod(t *testing.T) {
 		pattern     string
 		exp         uint8
 	}{
-		"Test empty method":                    {"", "/hello", "GET /hello", methodNotFound},
-		"Test path":                            {"GET", "/hello", "GET /$", pathNotFound},
-		"Testing POST method with GET request": {"GET", "/hello", "POST /hello", methodNotFound},
-		"Test method and path":                 {"GET", "/hello", "GET /hello", methodAndPathFound},
+		"Test empty method":                    {"", "/hello", "(GET) /hello", methodNotFound},
+		"Test path":                            {"GET", "/hello", "(GET) /$", pathNotFound},
+		"Testing POST method with GET request": {"GET", "/hello", "(POST) /hello", methodNotFound},
+		"Test method and path":                 {"GET", "/hello", "(GET) /hello", methodAndPathFound},
 		"Test GET method":                      {"GET", "/hello", "(GET|POST) /hello", methodAndPathFound},
 		"Test POST method":                     {"POST", "/hello", "(GET|POST) /hello", methodAndPathFound},
+		"Test OPTIONS method":                  {"OPTIONS", "/hello", "(GET|POST) /hello", methodAndPathFound},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -71,10 +74,10 @@ func TestGenerateFullPattern(t *testing.T) {
 		methods []string
 		exp     string
 	}{
-		"empty pattern and method": {"", []string{}, "GET /$"},
-		"empty pattern":            {"", []string{"GET"}, "GET /$"},
-		"pattern 1":                {"/$", []string{"GET"}, "GET /$"},
-		"pattern 2":                {"/hello", []string{"GET"}, "GET /hello"},
+		"empty pattern and method": {"", []string{}, "(GET) /$"},
+		"empty pattern":            {"", []string{"GET"}, "(GET) /$"},
+		"pattern 1":                {"/$", []string{"GET"}, "(GET) /$"},
+		"pattern 2":                {"/hello", []string{"GET"}, "(GET) /hello"},
 		"pattern 3":                {"/hello", []string{"GET", "POST"}, "(GET|POST) /hello"},
 	}
 
@@ -83,6 +86,40 @@ func TestGenerateFullPattern(t *testing.T) {
 			got := generateFullPattern(tc.pattern, tc.methods...)
 			if got != tc.exp {
 				t.Errorf("Expected content type %s, but we got %s", tc.exp, got)
+			}
+		})
+	}
+}
+
+func TestRegexResolver_ReverseWithMethod(t *testing.T) {
+	tests := map[string]struct {
+		name    string
+		pattern string
+		methods []string
+		values  url.Values
+		exp     string
+	}{
+		"simple":                    {"article", `/article`, []string{"GET"}, url.Values{}, "/article"},
+		"one int argument":          {"article", `/article/(\d+)`, []string{"GET"}, url.Values{"": {"1"}}, "/article/1"},
+		"one int arg and no method": {"article", `/article/(\d+)`, nil, url.Values{"": {"1"}}, "/article/1"},
+	}
+	r := NewRouter()
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			err := r.AddWithName(tc.name, tc.pattern,
+				func(w http.ResponseWriter, r *http.Request) {
+
+				}, tc.methods...)
+			if err != nil {
+				t.Error(err)
+			}
+			got, err := r.Reverse(tc.name, tc.values)
+			if err != nil {
+				t.Error(err)
+			}
+
+			if tc.exp != got {
+				t.Errorf("Expected url %s, but we got %s", tc.exp, got)
 			}
 		})
 	}

@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func testHttp(t *testing.T, handlerFunc http.HandlerFunc, body string) func() {
+func testHttp(t *testing.T, handlerFunc http.HandlerFunc, code int, body string) func() {
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
 		t.Errorf("Error msg %v", err)
@@ -16,8 +16,8 @@ func testHttp(t *testing.T, handlerFunc http.HandlerFunc, body string) func() {
 	handler := http.HandlerFunc(handlerFunc)
 	handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusMethodNotAllowed {
-		t.Errorf("Status code expected %d, actual %d", http.StatusMethodNotAllowed, rec.Code)
+	if rec.Code != code {
+		t.Errorf("Status code expected %d, actual %d", code, rec.Code)
 	}
 	got := rec.Body.String()
 	if body != got {
@@ -27,9 +27,9 @@ func testHttp(t *testing.T, handlerFunc http.HandlerFunc, body string) func() {
 }
 
 func TestHttp405Html(t *testing.T) {
-	defer testHttp(t, Http405Html, "<h1>Method not allowed.</h1>")
+	defer testHttp(t, Http405Html, http.StatusMethodNotAllowed, "<h1>Method not allowed.</h1>")
 }
 
 func TestHttp405Text(t *testing.T) {
-	defer testHttp(t, Http405Text, "Method not allowed.")
+	defer testHttp(t, Http405Text, http.StatusMethodNotAllowed, "Method not allowed.")
 }
