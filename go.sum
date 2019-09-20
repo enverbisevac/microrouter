@@ -2,3 +2,5 @@ github.com/cornelk/hashmap v1.0.0 h1:jNHWycAM10SO5Ig76HppMQ69jnbqaziRpqVTNvAxdJQ
 github.com/cornelk/hashmap v1.0.0/go.mod h1:8wbysTUDnwJGrPZ1Iwsou3m+An6sldFrJItjRhfegCw=
 github.com/dchest/siphash v1.1.0 h1:1Rs9eTUlZLPBEvV+2sTaM8O0NWn0ppbgqS7p11aWawI=
 github.com/dchest/siphash v1.1.0/go.mod h1:q+IRvb2gOSrUnYoPqHiyHXS0FOBBOdl6tONBlVnOnt4=
+github.com/gorilla/reverse v1.0.0 h1:F7Z1VvSYP8SpFwOaJ0WNvYOFKPYMHfgaSBvK2DWrJ7w=
+github.com/gorilla/reverse v1.0.0/go.mod h1:nG8Q4FFSRvK6cKcXOmYhB/jT5foldaGeoSSUU0votq0=
