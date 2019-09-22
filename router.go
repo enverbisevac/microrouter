@@ -1,14 +1,13 @@
 package microrouter
 
 import (
-	"fmt"
 	"github.com/gorilla/reverse"
 	"log"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
-	"time"
+	"sync/atomic"
 )
 
 const (
@@ -46,12 +45,12 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 type route struct {
 	pattern     string
 	handlerFunc http.HandlerFunc
+	counter     uint64
 }
 
 type RegexHandler interface {
 	http.Handler
-	Add(pattern string, handlerFunc http.HandlerFunc, methods ...string) error
-	AddWithName(name, pattern string, handlerFunc http.HandlerFunc, methods ...string) error
+	SetRootGroup(group *Group)
 	SetNotFoundHandler(contentType string, handlerFunc http.HandlerFunc)
 	SetMethodNotFoundHandler(contentType string, handlerFunc http.HandlerFunc)
 	Reverse(name string, values url.Values) (string, error)
@@ -63,6 +62,7 @@ type regexResolver struct {
 	cache          map[string]*reverse.Regexp
 	notFound       map[string]http.HandlerFunc // Content type based not found resource
 	methodNotFound map[string]http.HandlerFunc
+	visited        chan<- string
 }
 
 func newRegexResolver() *regexResolver {
@@ -72,47 +72,50 @@ func newRegexResolver() *regexResolver {
 	methodNotFound := make(map[string]http.HandlerFunc)
 	methodNotFound[defaultContentType] = Http405Html
 	methodNotFound[textContentType] = Http405Text
-	return &regexResolver{
+	visited := make(chan string)
+
+	regex := &regexResolver{
+		visited:        visited,
 		names:          make(map[string]string),
 		cache:          make(map[string]*reverse.Regexp),
 		notFound:       notFound,
 		methodNotFound: methodNotFound,
 	}
+	// run routine to calculate traffic
+	go regex.visitedFunc(visited)
+	return regex
 }
 
-func generateFullPattern(pattern string, methods ...string) string {
-	if pattern == "" {
-		pattern = "/$"
+func (r *regexResolver) visitedFunc(visited <-chan string) {
+	for {
+		val := <-visited
+		for _, route := range r.routes {
+			if route.pattern == val {
+				log.Printf("Url %s have %d hits", val, atomic.LoadUint64(&route.counter))
+				break
+			}
+		}
 	}
-	methodsString := "(GET)"
-	if len(methods) > 0 {
-		methodsString = fmt.Sprintf("(%s)", strings.Join(methods, "|"))
-	}
-	fullPattern := strings.Join([]string{methodsString, pattern}, " ")
-	return fullPattern
 }
 
-func (r *regexResolver) Add(pattern string, handlerFunc http.HandlerFunc, methods ...string) error {
-	fullPattern := generateFullPattern(pattern, methods...)
-	// set handler for this pattern
-	r.routes = append(r.routes, route{
-		pattern:     fullPattern,
-		handlerFunc: handlerFunc,
-	})
-	cache, err := reverse.CompileRegexp(fullPattern)
-	if err != nil {
-		return err
+func (r *regexResolver) SetRootGroup(group *Group) {
+	// generate all urls
+	group.generate("")
+	// copy to routes
+	for _, routeObject := range group.routes {
+		log.Println(routeObject.pattern)
+		r.routes = append(r.routes, route{
+			pattern:     routeObject.pattern,
+			handlerFunc: routeObject.handlerFunc,
+		})
+		r.names[routeObject.pattern] = group.names[routeObject.pattern]
+		cache, err := reverse.CompileRegexp(routeObject.pattern)
+		if err != nil {
+			continue
+		}
+		// set cache on compiled regex
+		r.cache[routeObject.pattern] = cache
 	}
-	// set cache on compiled regex
-	r.cache[fullPattern] = cache
-	log.Println(cache)
-	return nil
-}
-
-func (r *regexResolver) AddWithName(name, pattern string, handlerFunc http.HandlerFunc, methods ...string) error {
-	err := r.Add(pattern, handlerFunc, methods...)
-	r.names[name] = generateFullPattern(pattern, methods...)
-	return err
 }
 
 func (r *regexResolver) ReverseWithMethod(name, method string, values url.Values) (string, error) {
@@ -149,13 +152,13 @@ func (r *regexResolver) SetMethodNotFoundHandler(contentType string, handlerFunc
 
 func (r *regexResolver) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	// what to check for example GET /about
-	start := time.Now()
 	check := strings.Join([]string{req.Method, req.URL.Path}, " ")
 	// try to find in routes table
-	for _, route := range r.routes {
+	for index, route := range r.routes {
 		if r.cache[route.pattern].MatchString(check) {
 			route.handlerFunc(res, req)
-			log.Printf("Total time %v", time.Since(start))
+			atomic.AddUint64(&r.routes[index].counter, 1)
+			r.visited <- route.pattern
 			return
 		}
 	}
