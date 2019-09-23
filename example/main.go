@@ -9,8 +9,7 @@ import (
 
 func main() {
 
-	router := microrouter.NewRouter()
-	router.Use(microrouter.LoggerMiddleware())
+	router := microrouter.New()
 
 	root := microrouter.NewGroup()
 	// method first and then path

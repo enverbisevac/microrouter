@@ -1,6 +1,7 @@
 package microrouter
 
 import (
+	"github.com/cornelk/hashmap"
 	"github.com/gorilla/reverse"
 	"log"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 	"sync/atomic"
+	"time"
 )
 
 const (
@@ -20,27 +22,6 @@ const (
 	pathNotFound
 	methodAndPathFound
 )
-
-type Router struct {
-	RegexHandler
-	middlewares MiddlewareChain
-}
-
-func NewRouter() *Router {
-	return &Router{
-		RegexHandler: newRegexResolver(),
-		middlewares:  MiddlewareChain{},
-	}
-}
-
-func (router *Router) Use(interceptor MiddlewareInterceptor) {
-	router.middlewares = append(router.middlewares, interceptor)
-}
-
-func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	handler := router.middlewares.Handler(router.RegexHandler.ServeHTTP)
-	handler.ServeHTTP(w, r)
-}
 
 type route struct {
 	pattern     string
@@ -62,36 +43,51 @@ type regexResolver struct {
 	cache          map[string]*reverse.Regexp
 	notFound       map[string]http.HandlerFunc // Content type based not found resource
 	methodNotFound map[string]http.HandlerFunc
-	visited        chan<- string
+	indexChannel   chan int
+	urlChannel     chan string
+	urlCache       *hashmap.HashMap
 }
 
-func newRegexResolver() *regexResolver {
+func New() *regexResolver {
 	notFound := make(map[string]http.HandlerFunc)
 	notFound[defaultContentType] = Http404Html
 	notFound[textContentType] = Http404Text
 	methodNotFound := make(map[string]http.HandlerFunc)
 	methodNotFound[defaultContentType] = Http405Html
 	methodNotFound[textContentType] = Http405Text
-	visited := make(chan string)
+	indexChannel := make(chan int)
+	urlChannel := make(chan string)
 
 	regex := &regexResolver{
-		visited:        visited,
+		urlCache:       new(hashmap.HashMap),
+		indexChannel:   indexChannel,
+		urlChannel:     urlChannel,
 		names:          make(map[string]string),
 		cache:          make(map[string]*reverse.Regexp),
 		notFound:       notFound,
 		methodNotFound: methodNotFound,
 	}
-	// run routine to calculate traffic
-	go regex.visitedFunc(visited)
+	// run routines to calculate traffic
+	go regex.visitedFunc(indexChannel)
+	go regex.visitedUrl(urlChannel)
 	return regex
 }
 
-func (r *regexResolver) visitedFunc(visited <-chan string) {
+func (r *regexResolver) visitedFunc(index <-chan int) {
 	for {
-		val := <-visited
-		for _, route := range r.routes {
-			if route.pattern == val {
-				log.Printf("Url %s have %d hits", val, atomic.LoadUint64(&route.counter))
+		val := <-index
+		counter := atomic.AddUint64(&r.routes[val].counter, 1)
+		log.Printf("Pattern %s have %d hits", r.routes[val].pattern, counter)
+	}
+}
+
+func (r *regexResolver) visitedUrl(url <-chan string) {
+	for {
+		val := <-url
+		log.Println(val)
+		for index, route := range r.routes {
+			if r.cache[route.pattern].MatchString(val) {
+				r.indexChannel <- index
 				break
 			}
 		}
@@ -151,14 +147,24 @@ func (r *regexResolver) SetMethodNotFoundHandler(contentType string, handlerFunc
 }
 
 func (r *regexResolver) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+	start := time.Now()
 	// what to check for example GET /about
 	check := strings.Join([]string{req.Method, req.URL.Path}, " ")
+	// use from cache
+	if handler, ok := r.urlCache.Get(req.URL.String()); ok {
+		handler.(http.HandlerFunc)(res, req)
+		r.urlChannel <- check
+		log.Println(time.Since(start))
+		return
+	}
+
 	// try to find in routes table
 	for index, route := range r.routes {
 		if r.cache[route.pattern].MatchString(check) {
 			route.handlerFunc(res, req)
-			atomic.AddUint64(&r.routes[index].counter, 1)
-			r.visited <- route.pattern
+			r.indexChannel <- index
+			r.urlCache.Set(req.URL.String(), route.handlerFunc)
+			log.Println(time.Since(start))
 			return
 		}
 	}
